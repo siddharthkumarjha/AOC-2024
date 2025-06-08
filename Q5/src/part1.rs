@@ -105,7 +105,6 @@ pub fn part1() {
     for print_line in print_line_list {
         if is_order_correct(&print_line, &rules_map) {
             if let Some(mid_elem) = print_line.get(print_line.len() / 2) {
-                println!("mid elem: {mid_elem}");
                 result += mid_elem;
             }
         }

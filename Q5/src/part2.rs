@@ -8,8 +8,7 @@
 ///
 /// After taking only the incorrectly-ordered updates and ordering them correctly,
 /// their middle page numbers are 47, 29, and 47. Adding these together produces 123.
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 const CONTENTS: &str = include_str!("../metadata/input.txt");
 
@@ -36,62 +35,74 @@ pub fn part2() {
         .collect();
 
     let mut result = 0;
-    for mut print_line in print_line_list {
-        let (order_status, incorrect_order_idx, swap_page_idx) =
-            is_order_correct(&print_line, &rules_map);
-        if !order_status {
-            swap_till_correct(
-                incorrect_order_idx,
-                swap_page_idx,
-                &rules_map,
-                &mut print_line,
-            );
-            if let Some(mid_elem) = print_line.get(print_line.len() / 2) {
-                result += mid_elem;
+    for print_line in print_line_list {
+        if let Some(sorted_line) = topo_sort(&print_line, &rules_map) {
+            if sorted_line != print_line {
+                if let Some(mid_elem) = sorted_line.get(sorted_line.len() / 2) {
+                    result += mid_elem;
+                }
             }
+        } else {
+            println!("cycle detected");
         }
     }
 
     println!("result: {result}");
 }
 
-fn swap_till_correct(
-    mut major_page_idx: usize,
-    mut minor_page_idx: usize,
-    rules_map: &RulesMap,
-    print_line: &mut [u32],
-) {
-    loop {
-        print_line.swap(major_page_idx, minor_page_idx);
-        let (order_status, incorrect_order_idx, swap_page_idx) =
-            is_order_correct(&print_line, &rules_map);
+fn topo_sort(print_line: &[u32], rules_map: &RulesMap) -> Option<Vec<u32>> {
+    let mut adj_list: HashMap<u32, HashSet<u32>> = HashMap::new();
+    let mut in_degree: BTreeMap<u32, usize> = BTreeMap::new();
 
-        if order_status {
-            break;
-        }
-        major_page_idx = incorrect_order_idx;
-        minor_page_idx = swap_page_idx;
+    for &pages in print_line {
+        adj_list.entry(pages).or_default();
+        in_degree.entry(pages).or_insert(0);
     }
-}
 
-fn is_order_correct(print_line: &[u32], rules_map: &RulesMap) -> (bool, usize, usize) {
-    let pos_page: BTreeMap<u32, usize> = print_line
-        .iter()
-        .enumerate()
-        .map(|(index, &page)| (page, index))
-        .collect();
-
-    for (key, rule_set) in rules_map {
-        if let Some(rule_page_index) = pos_page.get(key) {
-            for rule in rule_set {
-                if let Some(small_page) = pos_page.get(rule) {
-                    if rule_page_index >= small_page {
-                        return (false, *rule_page_index, *small_page);
-                    }
+    // T page -> inf page
+    // T page -> inf page
+    // inc degree of these inf pages
+    for page in print_line {
+        if let Some(rules) = rules_map.get(page) {
+            for &inferior_page in rules {
+                if print_line.contains(&inferior_page)
+                    && adj_list.get(page).unwrap().contains(&inferior_page) == false
+                {
+                    adj_list.get_mut(page).unwrap().insert(inferior_page);
+                    *in_degree.get_mut(&inferior_page).unwrap() += 1;
                 }
             }
         }
     }
 
-    (true, 0, 0)
+    // Topo logical sort, khan's algorithm
+    // push everything of degree 0 in queue, pop it out of q and in the process decrease the degree
+    // of dependent edges. repeat the process and you have a topo sorted list
+    let mut queue: VecDeque<u32> = VecDeque::new();
+    for (&page, &deg) in &in_degree {
+        if deg == 0 {
+            queue.push_back(page);
+        }
+    }
+
+    let mut sorted_order: Vec<u32> = Vec::new();
+
+    while let Some(page) = queue.pop_front() {
+        sorted_order.push(page);
+        if let Some(neighbours) = adj_list.get(&page) {
+            for &neighbour in neighbours {
+                let deg = in_degree.get_mut(&neighbour).unwrap();
+                *deg -= 1;
+                if *deg == 0 {
+                    queue.push_back(neighbour);
+                }
+            }
+        }
+    }
+
+    if sorted_order.len() == print_line.len() {
+        Some(sorted_order)
+    } else {
+        None
+    }
 }
