@@ -1,19 +1,12 @@
-/// The map shows the current position of the guard with ^
-/// (to indicate the guard is currently facing up from the perspective of the map).
-/// Any obstructions - crates, desks, alchemical reactors, etc. - are shown as #.
-///
-/// Lab guards in 1518 follow a very strict patrol protocol which involves repeatedly following these steps:
-///
-///     If there is something directly in front of you, turn right 90 degrees.
-///     Otherwise, take a step forward.
-/// This process continues for a while, but the guard eventually leaves the mapped area
 const std = @import("std");
 const splitByLine = @import("./split-by-line.zig");
 
 pub const string = splitByLine.string;
 pub const lines = splitByLine.lines;
+pub const Allocator = std.mem.Allocator;
+
 const Direction = enum { Up, Down, Left, Right };
-const GuardPos = struct {
+pub const GuardPos = struct {
     line: usize,
     col: usize,
 };
@@ -24,7 +17,7 @@ const MoveConst = struct {
     const Guard = '^';
 };
 
-pub const Allocator = std.mem.Allocator;
+const allocator = std.heap.page_allocator;
 const cwd = std.fs.cwd();
 
 fn findPosOfGuard(array_of_lines: *lines) ?GuardPos {
@@ -152,7 +145,7 @@ fn DistinctPosVisited(buffer: *const string) u64 {
     return std.mem.count(u8, buffer.items, pattern_to_find[0..]) + 1;
 }
 
-pub fn part1(allocator: Allocator, extern_buffer: ?*string, extern_array_of_lines: ?*lines) !u64 {
+pub fn main() !void {
     const fstream = try cwd.openFile("./example.txt", .{});
     defer fstream.close();
 
@@ -175,11 +168,7 @@ pub fn part1(allocator: Allocator, extern_buffer: ?*string, extern_array_of_line
     }
 
     const distinct_pos_visited = DistinctPosVisited(&buffer);
-    if (extern_buffer) |extern_handle| {
-        extern_handle.* = string.fromOwnedSlice(allocator, try buffer.toOwnedSlice());
-    }
-    if (extern_array_of_lines) |extern_handle| {
-        extern_handle.* = lines.fromOwnedSlice(allocator, try array_of_lines.toOwnedSlice());
-    }
-    return distinct_pos_visited;
+    std.log.debug("\n{s}\n", .{buffer.items});
+    std.log.debug("======================================================", .{});
+    std.log.debug("no of distinct positions visited: {}", .{distinct_pos_visited});
 }
